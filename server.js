@@ -1,11 +1,15 @@
 const express = require("express");
 const nodemailer = require("nodemailer");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Serve static frontend
+app.use(express.static(path.join(__dirname, "public")));
 
 // Check env variables
 if (!process.env.EMAIL || !process.env.APP_PASSWORD) {
@@ -24,22 +28,21 @@ let transporter = nodemailer.createTransport({
   }
 });
 
-// Verify transporter on server start
+// Verify transporter
 transporter.verify(function(error, success) {
-  if (error) {
-    console.error("EMAIL TRANSPORTER ERROR →", error);
-  } else {
-    console.log("Email transporter is ready to send messages");
-  }
+  if (error) console.error("EMAIL TRANSPORTER ERROR →", error);
+  else console.log("Email transporter ready");
+});
+
+// Root route to serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // POST route to send email
 app.post("/send-email", async (req, res) => {
   const { task } = req.body;
-
-  if (!task) {
-    return res.json({ success: false, message: "Task is missing!" });
-  }
+  if (!task) return res.json({ success: false, message: "Task is missing!" });
 
   let mailOptions = {
     from: `"TODO App" <${process.env.EMAIL}>`,
@@ -58,6 +61,6 @@ app.post("/send-email", async (req, res) => {
   }
 });
 
-
-
-app.listen(4000, () => console.log("Server running on port 4000"));
+// Start server (use process.env.PORT for Vercel)
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
