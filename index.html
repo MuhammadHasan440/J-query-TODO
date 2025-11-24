@@ -3,8 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <title>TODO App with Email & Toast</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<style>
+  body {
+  font-family: "Inter", Arial, sans-serif;
+  padding: 20px;
+  max-width: 450px;
+  margin: auto;
+  background: radial-gradient(circle, #1F2937, #4f6485,#99a8c5);
+  color: #1F2937;
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+
+h2{text-align:center;font-size:26px;font-weight:700;color:#ffffff;margin-bottom:20px;}
+#taskInput{width:80%;padding:10px;border-radius:8px;border:1px solid #d1d5db;transition:0.3s ease;}
+#btnAdd{padding:10px 14px;background:#4F46E5;color:white;border:none;border-radius:8px;cursor:pointer;}
+#btnAdd:hover{transform: scale(1.06);background:#4338CA;}
+
+ul{margin-top:20px;padding:0;}
+li{list-style:none;background:white;padding:12px 14px;margin:6px 0;border-radius:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:0.25s ease;}
+li:hover{transform:translateY(-3px);box-shadow:0 6px 18px rgba(0,0,0,0.1);}
+.done{text-decoration:line-through;background:#d1fae5 !important;border-left:6px solid #22C55E;}
+
+button.removeBtn{background:#EF4444;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;}
+button.removeBtn:hover{background:#DC2626;transform:scale(1.1);}
+button.editBtn{background:#4F46E5;color:white;border:none;padding:6px 10px;border-radius:6px;margin-left:5px;cursor:pointer;}
+button.editBtn:hover{background:#4338CA;transform:scale(1.05);}
+
+#clearAll{margin-top:15px;padding:10px 12px;background:#111827;color:white;border:none;border-radius:10px;width:100%;cursor:pointer;}
+#clearAll:hover{background:#000;transform:scale(1.03);}
+
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:white;padding:12px 24px;border-radius:8px;display:none;font-weight:bold;z-index:999;}
+
+#emptyMessage{text-align:center;color:rgb(223,82,82);}
+#taskCounter{margin-top:15px;font-weight:bold;color:rgb(128,128,128);}
+
+@media(max-width:500px){
+  body{padding:15px;}
+  #taskInput{width:70%;}
+  #btnAdd{padding:8px 12px;}
+}
+
+</style>
 </head>
 <body>
 
@@ -20,6 +63,73 @@
 
 <div id="toast"></div>
 
-<script src="script.js"></script>
+<script>
+  let selectedTask = null;
+
+function showToast(msg){ $("#toast").stop(true,true).text(msg).fadeIn(300).delay(2000).fadeOut(300); }
+
+function updateEmptyMessage(){ $("#taskList li").length===0 ? $("#emptyMessage").show() : $("#emptyMessage").hide(); }
+function updateTaskCounter(){ let total=$("#taskList li").length, completed=$("#taskList li.done").length, notCompleted=total-completed; $("#taskCounter").text(`Total: ${total} | Completed: ${completed} | Not Completed: ${notCompleted}`); }
+
+function saveTasks(){ localStorage.setItem("tasks", $("#taskList").html()); }
+
+function sendEmail(task,type){
+  $.ajax({
+    url:"/send-email",
+    type:"POST",
+    contentType:"application/json",
+    data:JSON.stringify({task:`${type}: ${task}`}),
+    success:function(res){ if(res.success) showToast(`${type} email sent!`); },
+    error:function(){ showToast("Email failed!"); }
+  });
+}
+
+$(document).ready(function(){
+  if(localStorage.getItem("tasks")) $("#taskList").html(localStorage.getItem("tasks"));
+  updateEmptyMessage(); updateTaskCounter();
+});
+
+// Add task
+$("#btnAdd").click(function(){
+  let task=$("#taskInput").val().trim();
+  if(task===""){ alert("Enter task!"); return; }
+  if($("#taskList li:not(.done)").length>=5){ alert("Max 5 incomplete tasks!"); return; }
+
+  $("#taskList").append(`<li>
+    <span class="taskText">${task}</span>
+    <button class="editBtn">Edit</button>
+    <button class="removeBtn">x</button>
+  </li>`);
+
+  $("#taskInput").val(""); saveTasks(); updateEmptyMessage(); updateTaskCounter();
+  sendEmail(task,"Added");
+});
+
+// Complete task
+$(document).on("click","li .taskText",function(){
+  $(this).parent().toggleClass("done"); saveTasks(); updateEmptyMessage(); updateTaskCounter();
+  showToast(`Task ${$(this).parent().hasClass("done") ? "Completed" : "Marked Incomplete"}`);
+});
+
+// Remove task
+$(document).on("click",".removeBtn",function(){
+  let taskText=$(this).siblings(".taskText").text(); $(this).parent().remove(); saveTasks(); updateEmptyMessage(); updateTaskCounter();
+  sendEmail(taskText,"Removed"); showToast("Task Removed");
+});
+
+// Edit task
+$(document).on("click",".editBtn",function(){
+  selectedTask=$(this).siblings(".taskText");
+  let updated=prompt("Edit task:", selectedTask.text());
+  if(updated && updated.trim()!==""){ selectedTask.text(updated.trim()); saveTasks(); updateTaskCounter(); showToast("Task Edited"); }
+});
+
+// Clear all
+$("#clearAll").click(function(){
+  if($("#taskList li").length===0){ alert("List empty!"); return; }
+  $("#taskList").empty(); saveTasks(); updateEmptyMessage(); updateTaskCounter(); showToast("All tasks cleared");
+});
+
+</script>
 </body>
 </html>
